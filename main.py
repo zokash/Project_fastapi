@@ -19,7 +19,7 @@ class CompanyTemplate(BaseModel):
 
 app = FastAPI()
 
-@app.get("/contacts/{id}")
+@app.get("/contacts/{contact_id}")
 def get_contact(contact_id: int):
     with get_conn() as conn:
         row = conn.execute("SELECT * FROM contacts WHERE contact_id = %s", (contact_id,)).fetchone()

@@ -1,23 +1,12 @@
-from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel
 
+
+from fastapi import Depends, FastAPI, HTTPException, status
+
+from auth import verify_key
 from db import get_conn
+from models import CompanyTemplate, ContactTemplate
 
-
-class ContactTemplate(BaseModel):
-    company_id: int
-    poc_name: str
-    phone: str
-    email: str
-    designation: str | None = None
-
-
-class CompanyTemplate(BaseModel):
-    company_name: str
-    service_type : str
-    address : str | None = None
-
-app = FastAPI()
+app = FastAPI(dependencies  = [Depends(verify_key)])
 
 @app.get("/contacts/{contact_id}")
 def get_contact(contact_id: int):
@@ -37,6 +26,9 @@ def all_contacts(company_id: int | None = None, limit:int | None=None):
     if company_id is not None:
        query+= " WHERE company_id = %s"
        params.append(company_id)
+
+    query+=" ORDER BY contact_id"
+    
 
     if limit is not None:
         query+=" LIMIT %s"

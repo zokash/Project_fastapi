@@ -12,3 +12,6 @@ def get_conn():
             password = os.environ["PASSWORD"],
             row_factory=dict_row
         )
+
+def get_key():
+    return os.environ["API_KEY"]

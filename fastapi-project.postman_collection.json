@@ -461,8 +461,82 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Unauthorized Requests",
+      "item": [
+        {
+          "name": "No Authentication",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/contacts/2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contacts",
+                "2"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Wrong Key",
+          "request": {
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "value",
+                  "value": "wrongkey",
+                  "type": "string"
+                },
+                {
+                  "key": "key",
+                  "value": "x-key",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/contacts/2",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "contacts",
+                "2"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ],
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "value",
+        "value": "uSYmBG7atqoa5_QO5jbHTOuMKPo5pOZVfOmLtek-ybE",
+        "type": "string"
+      },
+      {
+        "key": "key",
+        "value": "x-key",
+        "type": "string"
+      }
+    ]
+  },
   "event": [
     {
       "listen": "prerequest",
@@ -491,6 +565,10 @@
     {
       "key": "base_url",
       "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "Project_key",
+      "value": ""
     }
   ]
 }

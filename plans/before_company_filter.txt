@@ -1,0 +1,27 @@
+
+slow query identified:
+
+--2
+EXPLAIN ANALYZE SELECT * FROM contacts WHERE company_id = 3 
+ORDER BY contact_id;
+---------------------------------------------------------------------------------------------------------------
+QUERY PLAN: 
+ 
+"Sort  (cost=2565.36..2565.60 rows=99 width=73) (actual time=7.115..7.118 rows=104.00 loops=1)"
+"  Sort Key: contact_id"
+"  Sort Method: quicksort  Memory: 34kB"
+"  Buffers: shared hit=1315 dirtied=3"
+"  ->  Seq Scan on contacts  (cost=0.00..2562.07 rows=99 width=73) (actual time=0.221..7.073 rows=104.00 loops=1)"
+"        Filter: (company_id = 3)"
+"        Rows Removed by Filter: 99902"
+"        Buffers: shared hit=1312 dirtied=3"
+"Planning:"
+"  Buffers: shared hit=77"
+"Planning Time: 0.261 ms"
+"Execution Time: 7.144 ms"
+----------------------------------------------------------------------------------------------------------------
+
+INFERENCE
+
+Query 2 (Seq Scan) scans over the whole table (1312 pages = all of contacts) and throws away 99,902 rows to fetch the 104 records. . There is no index on company_id so Postgres has no faster way to find those rows.  this number will increase with an increase in the volume of data. ie, for 10M+ data it will take several hundred milliseconds on every call to this endpoint. The cost grows with the table size and not the number of rows that are returned.  
+

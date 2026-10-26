@@ -1,0 +1,42 @@
+1. EXPLAIN ANALYZE SELECT * FROM contacts WHERE company_id = 3 
+ORDER BY contact_id Limit 10;
+
+QUERY PLAN:
+"Limit  (cost=0.29..39.65 rows=10 width=73) (actual time=0.029..0.051 rows=10.00 loops=1)"
+"  Buffers: shared hit=11"
+"  ->  Index Scan using idx_contacts_company_id_contact_id on contacts  (cost=0.29..386.00 rows=98 width=73) (actual time=0.027..0.047 rows=10.00 loops=1)"
+"        Index Cond: (company_id = 3)"
+"        Index Searches: 1"
+"        Buffers: shared hit=11"
+"Planning Time: 0.174 ms"
+"Execution Time: 0.070 ms"
+
+2. EXPLAIN ANALYZE SELECT * FROM contacts WHERE company_id = 1006
+ORDER BY contact_id Limit 10;
+
+
+QUERY PLAN:
+"Limit  (cost=0.29..39.65 rows=10 width=73) (actual time=0.040..0.040 rows=0.00 loops=1)"
+"  Buffers: shared hit=2"
+"  ->  Index Scan using idx_contacts_company_id_contact_id on contacts  (cost=0.29..386.00 rows=98 width=73) (actual time=0.037..0.037 rows=0.00 loops=1)"
+"        Index Cond: (company_id = 1006)"
+"        Index Searches: 1"
+"        Buffers: shared hit=2"
+"Planning Time: 0.362 ms"
+"Execution Time: 0.073 ms"
+
+
+
+Both plans show the composite index being used, and neither has a Sort node.
+
+-> Company 1006 (zero contacts): 2 buffers, 0.031 ms. The index lookup finds nothing for company_id = 1006 and stops immediately. Before the index, this was the dangerous case: Postgres would walk the entire pkey index looking for matches that didn’t exist.
+-> Company 3 (104 contacts): 11 buffers. It reads exactly 10 rows and then stops.
+
+For the same company with the same index, the planner chose a Bitmap scan + Sort without LIMIT, and a plain Index Scan with LIMIT 10. Why does adding LIMIT flip the choice?
+
+Why LIMIT flips bitmap → index scan:
+
+Index Scan returns rows already in contact_id order, one at a time. With LIMIT 10 it stops after 10 rows, so it touches about 10 rows and pages.
+Bitmap Index → Bitmap Heap → Sort can’t output anything until it has fetched and sorted all matching rows. With LIMIT, it still does 100% of the work and then throws most of it away.
+So LIMIT favors plans that can stop early, and only an ordered scan can.
+Without LIMIT, or with LIMIT larger than the estimated matches (e.g. 200 > ~98), there’s no early stop. Every row gets processed either way, so bitmap’s cheaper page access wins.

@@ -47,3 +47,13 @@ BEGIN;
 EXPLAIN ANALYZE INSERT INTO companies("company_name","service_type","address")
 VALUES('Bajaj','Electrical Appliances','XYZ Lane, ABC city, India');
 ROLLBACK;
+
+--query 2 improved
+BEGIN;
+CREATE INDEX idx_contacts_company_id_contact_id ON contacts (company_id,contact_id );
+EXPLAIN ANALYZE SELECT * FROM contacts WHERE company_id = 3 
+ORDER BY contact_id;
+SET enable_bitmapscan = off;
+EXPLAIN ANALYZE SELECT * FROM contacts WHERE company_id = 3 ORDER BY contact_id;
+RESET enable_bitmapscan;
+ROLLBACK;

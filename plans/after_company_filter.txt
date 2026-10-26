@@ -1,0 +1,51 @@
+query 2 - Improved:
+--creating index 
+CREATE INDEX idx_contacts_company_id_contact_id ON contacts (company_id,contact_id );
+
+Note:
+1. Index on company_id: to get rid of the seq scan ( that leads to 1312 page reads and postgres filtered out 99,902 of 100k rows, no matter how few rows matched.)
+2. contact_id (2nd column): makes entries for one company already sorted by contact_id, so an Index Scan needs no Sort. The planner chose a bitmap scan instead, which loses that order, so the Sort stays. It’s cheap anyway: 104 rows, 34kB.
+
+Testing New indexed query:
+
+    QUERY: EXPLAIN ANALYZE SELECT * FROM contacts WHERE company_id = 3 ORDER BY contact_id;
+ 
+ PLAN:
+ "Sort  (cost=312.83..313.07 rows=98 width=73) (actual time=0.218..0.222 rows=104.00 loops=1)"
+"  Sort Key: contact_id"
+"  Sort Method: quicksort  Memory: 34kB"
+"  Buffers: shared hit=100 read=2"
+"  ->  Bitmap Heap Scan on contacts  (cost=5.05..309.59 rows=98 width=73) (actual time=0.059..0.192 rows=104.00 loops=1)"
+"        Recheck Cond: (company_id = 3)"
+"        Heap Blocks: exact=100"
+"        Buffers: shared hit=100 read=2"
+"        ->  Bitmap Index Scan on idx_contacts_company_id_contact_id  (cost=0.00..5.03 rows=98 width=0) (actual time=0.039..0.039 rows=104.00 loops=1)"
+"              Index Cond: (company_id = 3)"
+"              Index Searches: 1"
+"              Buffers: shared read=2"
+"Planning:"
+"  Buffers: shared hit=47 read=1 dirtied=3"
+"Planning Time: 0.757 ms"
+"Execution Time: 0.259 ms"
+
+            Before	                After
+Scan	    Seq Scan (whole table)	Bitmap Index → Bitmap Heap
+Buffers	        1,312	                102
+Rows 
+removed by 
+filter	        99,902	                0
+Time	        ~5.9–7 ms	            0.259 ms
+
+
+
+Q. Why did the planner choose bitmap over index scan?
+
+Ans. the planner picked the plan with the lower cost (312 vs 390), but the plan it rejected actually ran faster (0.119 ms vs 0.259 ms). So isn’t the planner wrong. WHY?!
+
+cost is a guess, not a measurement. It’s measured in made-up units and calculated before the query runs. To make the guess, the planner uses fixed assumptions. The key one is random_page_cost = 4, which means “a random page read is 4× more expensive than a sequential one.” That number comes from spinning hard disks, and it assumes the pages have to come from disk.
+
+actual run broke that assumption. By the time I forced the index scan, the pages were already in memory, because the earlier bitmap run had just loaded them. Checking the Buffers line in the forced plan, I saw all hit, no read. (  Buffers: shared hit=102 )Jumping between pages in memory costs almost nothing, so the random-I/O penalty the planner charged never happened. It priced the plan as if it were going to disk, then the query hit memory.
+
+note: Differences under 1 ms between back-to-back runs are mostly noise and cache effects. Don’t treat 0.119(Forced index scan) vs 0.259(bitmap) as a real verdict.
+
+note: On SSDs, people often lower random_page_cost to about 1.1 so the planner stops over-penalizing random reads. That’s a tuning topic for later.

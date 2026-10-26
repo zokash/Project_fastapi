@@ -37,3 +37,11 @@ VALUES
 (2,'Daniel D','97657XXXXX','Daniel@example.com','Employee');
 
 SELECT * FROM contacts;
+
+--creating index for improving query performance after using EXPLAIN ANALYZE on queries. Read Explain_analyze_queries.sql for further info
+
+CREATE INDEX idx_contacts_company_id_contact_id ON contacts (company_id,contact_id );
+
+ANALYZE contacts;
+  -- recovery from index: DROP INDEX idx_contacts_company_id_contact_id;
+  -- check if index exists:  SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'contacts';
